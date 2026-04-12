@@ -1,0 +1,79 @@
+name: Setup Ubuntu
+description: Installs Ubuntu dependencies
+inputs:
+  gcc-ppa:
+    description: Should this action install GCC PPA
+    required: false
+    default: false
+
+  gcc-version:
+    description: Version of GCC to install/use
+    required: false
+    default: 13
+
+  clang-version:
+    description: Version of Clang to install/use
+    required: false
+    default: 18
+
+  compiler:
+    description: Which compiler to use; should be one of "gcc" or "clang"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install GCC
+      if: ${{ fromJson(inputs.gcc-ppa) }}
+      shell: bash
+      run: |
+        sudo apt install software-properties-common -y
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+        sudo apt install gcc-${{ inputs.gcc-version }} g++-${{ inputs.gcc-version }} -y
+
+    - name: Set up GCC
+      shell: bash
+      run: |
+        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${{ inputs.gcc-version }} ${{ inputs.gcc-version }}0
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${{ inputs.gcc-version }} ${{ inputs.gcc-version }}0
+        sudo update-alternatives --install /usr/bin/gcov gcov /usr/bin/gcov-${{ inputs.gcc-version }} ${{ inputs.gcc-version }}0
+
+        sudo update-alternatives --set g++ /usr/bin/g++-${{ inputs.gcc-version }}
+        sudo update-alternatives --set gcc /usr/bin/gcc-${{ inputs.gcc-version }}
+        sudo update-alternatives --set gcov /usr/bin/gcov-${{ inputs.gcc-version }}
+
+    - name: Set up GCC as c++/cc
+      if: ${{ inputs.compiler == 'gcc' }}
+      shell: bash
+      run: |
+        sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-${{ inputs.gcc-version }} ${{ inputs.gcc-version }}0
+        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-${{ inputs.gcc-version }} ${{ inputs.gcc-version }}0
+
+        sudo update-alternatives --set c++ /usr/bin/g++-${{ inputs.gcc-version }}
+        sudo update-alternatives --set cc /usr/bin/gcc-${{ inputs.gcc-version }}
+
+    - name: Install Clang
+      if: ${{ inputs.compiler == 'clang' }}
+      shell: bash
+      run: |
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh ${{ inputs.clang-version }} all
+
+        sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${{ inputs.clang-version }} ${{ inputs.clang-version }}0
+        sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ inputs.clang-version }} ${{ inputs.clang-version }}0
+
+        sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++-${{ inputs.clang-version }} ${{ inputs.clang-version }}0
+        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang-${{ inputs.clang-version }} ${{ inputs.clang-version }}0
+
+        sudo update-alternatives --set clang++ /usr/bin/clang++-${{ inputs.clang-version }}
+        sudo update-alternatives --set clang /usr/bin/clang-${{ inputs.clang-version }}
+
+        sudo update-alternatives --set c++ /usr/bin/clang++-${{ inputs.clang-version }}
+        sudo update-alternatives --set cc /usr/bin/clang-${{ inputs.clang-version }}
+
+    - name: Check C++ binary
+      shell: bash
+      run: |
+        realpath `which c++`
+        c++ --version
